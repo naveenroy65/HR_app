@@ -2,7 +2,9 @@ import express from 'express';
 import Payroll from '../models/Payroll.js';
 import Employee from '../models/Employee.js';
 import Attendance from '../models/Attendance.js';
+import Notification from '../models/Notification.js';
 import { protect, authorize } from '../middleware/auth.js';
+import { sendPayrollGeneratedEmail } from '../utils/emailService.js';
 
 const router = express.Router();
 
@@ -119,7 +121,7 @@ router.post('/generate', protect, authorize('Admin', 'HR'), async (req, res) => 
         },
         grossPay: parseFloat(grossPay.toFixed(2)),
         netPay: parseFloat(netPay.toFixed(2)),
-        status: 'Generated'
+        status: 'Pending Approval'
       });
 
       payrollRecords.push(payrollRecord);
@@ -134,6 +136,102 @@ router.post('/generate', protect, authorize('Admin', 'HR'), async (req, res) => 
   } catch (error) {
     console.error('Generate payroll error:', error);
     res.status(500).json({ message: 'Server error generating payroll' });
+  }
+});
+
+// @route   PUT /api/payroll/:id/approve
+// @desc    Approve payroll record
+// @access  Private (Admin, HR)
+router.put('/:id/approve', protect, authorize('Admin', 'HR'), async (req, res) => {
+  try {
+    const payroll = await Payroll.findById(req.params.id).populate('employeeId');
+
+    if (!payroll) {
+      return res.status(404).json({ message: 'Payroll record not found' });
+    }
+
+    if (payroll.status === 'Approved' || payroll.status === 'Paid') {
+      return res.status(400).json({ message: 'Payroll already approved' });
+    }
+
+    payroll.status = 'Approved';
+    payroll.approvedBy = req.user._id;
+    payroll.approvedAt = new Date();
+
+    await payroll.save();
+
+    // Send notification to employee
+    const employee = await Employee.findById(payroll.employeeId._id).populate('userId');
+    if (employee && employee.userId) {
+      await Notification.create({
+        userId: employee.userId._id,
+        title: 'Payroll Approved',
+        message: `Your payroll for month ${payroll.month + 1}/${payroll.year} has been approved`,
+        type: 'payroll',
+        relatedId: payroll._id
+      });
+
+      // Send email notification
+      await sendPayrollGeneratedEmail(
+        employee.email,
+        employee.name,
+        payroll.month,
+        payroll.year,
+        payroll.netPay
+      );
+    }
+
+    const populatedPayroll = await Payroll.findById(payroll._id)
+      .populate('employeeId')
+      .populate('approvedBy', 'name email');
+
+    res.json(populatedPayroll);
+  } catch (error) {
+    console.error('Approve payroll error:', error);
+    res.status(500).json({ message: 'Server error approving payroll' });
+  }
+});
+
+// @route   PUT /api/payroll/:id/reject
+// @desc    Reject payroll record
+// @access  Private (Admin, HR)
+router.put('/:id/reject', protect, authorize('Admin', 'HR'), async (req, res) => {
+  try {
+    const { rejectionReason } = req.body;
+
+    const payroll = await Payroll.findById(req.params.id).populate('employeeId');
+
+    if (!payroll) {
+      return res.status(404).json({ message: 'Payroll record not found' });
+    }
+
+    payroll.status = 'Rejected';
+    payroll.rejectionReason = rejectionReason || '';
+    payroll.approvedBy = req.user._id;
+    payroll.approvedAt = new Date();
+
+    await payroll.save();
+
+    // Send notification to employee
+    const employee = await Employee.findById(payroll.employeeId._id).populate('userId');
+    if (employee && employee.userId) {
+      await Notification.create({
+        userId: employee.userId._id,
+        title: 'Payroll Rejected',
+        message: `Your payroll for month ${payroll.month + 1}/${payroll.year} has been rejected. Reason: ${rejectionReason}`,
+        type: 'payroll',
+        relatedId: payroll._id
+      });
+    }
+
+    const populatedPayroll = await Payroll.findById(payroll._id)
+      .populate('employeeId')
+      .populate('approvedBy', 'name email');
+
+    res.json(populatedPayroll);
+  } catch (error) {
+    console.error('Reject payroll error:', error);
+    res.status(500).json({ message: 'Server error rejecting payroll' });
   }
 });
 
@@ -155,7 +253,9 @@ router.put('/:id', protect, authorize('Admin', 'HR'), async (req, res) => {
     }
 
     const updatedPayroll = await payroll.save();
-    const populatedPayroll = await Payroll.findById(updatedPayroll._id).populate('employeeId');
+    const populatedPayroll = await Payroll.findById(updatedPayroll._id)
+      .populate('employeeId')
+      .populate('approvedBy', 'name email');
 
     res.json(populatedPayroll);
   } catch (error) {

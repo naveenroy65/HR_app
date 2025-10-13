@@ -34,9 +34,34 @@ const userSchema = new mongoose.Schema({
   mfaSecret: {
     type: String,
     default: null
+  },
+  resetPasswordToken: {
+    type: String,
+    default: null
+  },
+  resetPasswordExpire: {
+    type: Date,
+    default: null
+  },
+  loginAttempts: {
+    type: Number,
+    default: 0
+  },
+  lockUntil: {
+    type: Date,
+    default: null
+  },
+  isActive: {
+    type: Boolean,
+    default: true
   }
 }, {
   timestamps: true
+});
+
+// Virtual for checking if account is locked
+userSchema.virtual('isLocked').get(function() {
+  return !!(this.lockUntil && this.lockUntil > Date.now());
 });
 
 // Hash password before saving

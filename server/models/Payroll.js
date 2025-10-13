@@ -54,8 +54,25 @@ const payrollSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Paid', 'Generated', 'Pending'],
-    default: 'Generated'
+    enum: ['Generated', 'Pending Approval', 'Approved', 'Rejected', 'Paid'],
+    default: 'Pending Approval'
+  },
+  approvedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  approvedAt: {
+    type: Date,
+    default: null
+  },
+  rejectionReason: {
+    type: String,
+    default: ''
+  },
+  payslipUrl: {
+    type: String,
+    default: ''
   }
 }, {
   timestamps: true

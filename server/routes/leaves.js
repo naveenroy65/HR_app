@@ -2,7 +2,9 @@ import express from 'express';
 import LeaveRequest from '../models/LeaveRequest.js';
 import LeaveBalance from '../models/LeaveBalance.js';
 import Notification from '../models/Notification.js';
+import Employee from '../models/Employee.js';
 import { protect, authorize } from '../middleware/auth.js';
+import { sendLeaveApprovalEmail } from '../utils/emailService.js';
 
 const router = express.Router();
 
@@ -129,6 +131,28 @@ router.put('/:id', protect, authorize('Admin', 'HR', 'Manager'), async (req, res
           
           await leaveBalance.save();
         }
+      }
+
+      // Send notification to employee
+      const employee = await Employee.findById(leaveRequest.employeeId).populate('userId');
+      if (employee && employee.userId) {
+        await Notification.create({
+          userId: employee.userId._id,
+          title: `Leave Request ${status}`,
+          message: `Your ${leaveRequest.leaveType} leave request has been ${status.toLowerCase()}`,
+          type: 'leave',
+          relatedId: leaveRequest._id
+        });
+
+        // Send email notification
+        await sendLeaveApprovalEmail(
+          employee.email,
+          employee.name,
+          leaveRequest.leaveType,
+          status,
+          leaveRequest.startDate,
+          leaveRequest.endDate
+        );
       }
     }
 

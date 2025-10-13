@@ -1,8 +1,10 @@
 import express from 'express';
+import crypto from 'crypto';
 import Employee from '../models/Employee.js';
 import User from '../models/User.js';
 import LeaveBalance from '../models/LeaveBalance.js';
 import { protect, authorize } from '../middleware/auth.js';
+import { sendWelcomeEmail } from '../utils/emailService.js';
 
 const router = express.Router();
 
@@ -56,12 +58,15 @@ router.post('/', protect, authorize('Admin', 'HR'), async (req, res) => {
       return res.status(400).json({ message: 'Employee ID already exists' });
     }
 
+    // Generate temporary password if not provided
+    const tempPassword = password || crypto.randomBytes(8).toString('hex');
+
     // Create user account for the employee
     const user = await User.create({
       name,
       email: email.toLowerCase(),
-      password: password || 'password',
-      role: 'Employee',
+      password: tempPassword,
+      role: role || 'Employee',
       avatarUrl: avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`
     });
 
@@ -85,18 +90,24 @@ router.post('/', protect, authorize('Admin', 'HR'), async (req, res) => {
     await LeaveBalance.create({
       employeeId: employee._id,
       balances: [
-        { type: 'Annual', total: 20, used: 0, pending: 0 },
-        { type: 'Sick', total: 10, used: 0, pending: 0 },
-        { type: 'Casual', total: 5, used: 0, pending: 0 },
-        { type: 'Unpaid', total: 99, used: 0, pending: 0 }
+        { type: 'Annual Leave', total: 20, used: 0, pending: 0 },
+        { type: 'Sick Leave', total: 10, used: 0, pending: 0 },
+        { type: 'Casual Leave', total: 12, used: 0, pending: 0 },
+        { type: 'Unpaid Leave', total: 99, used: 0, pending: 0 }
       ]
     });
+
+    // Send welcome email with credentials
+    await sendWelcomeEmail(email, name, employeeId, tempPassword);
 
     const populatedEmployee = await Employee.findById(employee._id)
       .populate('departmentId')
       .populate('userId');
 
-    res.status(201).json(populatedEmployee);
+    res.status(201).json({
+      employee: populatedEmployee,
+      message: 'Employee created successfully. Welcome email sent with login credentials.'
+    });
   } catch (error) {
     console.error('Create employee error:', error);
     res.status(500).json({ message: 'Server error creating employee' });
