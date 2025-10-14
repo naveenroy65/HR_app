@@ -1,5 +1,26 @@
 # WEintegrity HR Management System
 
+## 🚀 Complete Full-Stack HR Management Application
+
+> **NEW**: This project now includes a complete MongoDB backend! See [FULLSTACK_SETUP.md](./FULLSTACK_SETUP.md) for setup instructions.
+
+### Quick Start (Full Stack)
+```bash
+# Automated setup
+chmod +x setup.sh && ./setup.sh
+
+# Or manual setup
+npm run install:all
+cp .env.example .env
+cp server/.env.example server/.env
+# Update server/.env with MongoDB URI
+npm run dev:fullstack
+```
+
+**Access:** Frontend at http://localhost:5173 | Backend at http://localhost:5000
+
+---
+
 ## Complete Full-Stack HR Management Application
 
 A production-ready, enterprise-grade Human Resources Management System built with React, TypeScript, Node.js, Express, and MongoDB. This comprehensive application implements all specified requirements including employee management, leave approvals, payroll processing, exit interviews, MFA, and advanced reporting.
