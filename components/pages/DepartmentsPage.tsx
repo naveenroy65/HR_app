@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Department, Employee } from '../../types';
 import Card from '../common/Card';
 import Button from '../common/Button';
 import DepartmentForm from '../departments/DepartmentForm';
 import Dialog from '../common/Dialog';
 import { useToast } from '../../hooks/useToast';
+import { departmentsApi } from '../../utils/api';
 
 interface DepartmentsPageProps {
   departments: Department[];
@@ -18,22 +19,54 @@ const DepartmentsPage: React.FC<DepartmentsPageProps> = ({ departments, setDepar
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [deletingDeptId, setDeletingDeptId] = useState<string | null>(null);
   const { addToast } = useToast();
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  useEffect(() => {
+    // optional: could be triggered on auth instead; kept here for safety
+    // Do not auto-load if there are already departments in memory to avoid overriding demo data
+    (async () => {
+      if (departments.length > 0) return;
+      try {
+        const { data } = await departmentsApi.list();
+        // Map backend shape -> frontend shape
+        const mapped: Department[] = data.map(d => ({ id: d._id, name: d.name, managerId: d.managerId?._id || undefined }));
+        if (mapped.length > 0) setDepartments(mapped);
+      } catch {}
+    })();
+  }, [departments.length, setDepartments]);
 
   const getDepartmentStats = (deptId: string) => {
     const employeeCount = employees.filter(e => e.departmentId === deptId).length;
     return { employeeCount };
   };
 
-  const handleSaveDepartment = (deptData: Department) => {
-    if (editingDepartment) {
-      setDepartments(departments.map(d => d.id === deptData.id ? deptData : d));
-      addToast({ type: 'success', message: 'Department updated successfully!' });
-    } else {
-      setDepartments(prev => [...prev, deptData]);
-      addToast({ type: 'success', message: 'Department created successfully!' });
+  const handleSaveDepartment = async (deptData: Department) => {
+    try {
+      setIsSyncing(true);
+      if (editingDepartment) {
+        const { data } = await departmentsApi.update(editingDepartment.id, {
+          name: deptData.name,
+          managerId: deptData.managerId || null,
+        });
+        const updated: Department = { id: data._id, name: data.name, managerId: data.managerId?._id || undefined };
+        setDepartments(departments.map(d => d.id === updated.id ? updated : d));
+        addToast({ type: 'success', message: 'Department updated successfully!' });
+      } else {
+        const { data } = await departmentsApi.create({
+          name: deptData.name,
+          managerId: deptData.managerId || null,
+        });
+        const created: Department = { id: data._id, name: data.name, managerId: data.managerId?._id || undefined };
+        setDepartments(prev => [created, ...prev]);
+        addToast({ type: 'success', message: 'Department created successfully!' });
+      }
+    } catch (e: any) {
+      addToast({ type: 'error', message: e?.message || 'Failed to save department' });
+    } finally {
+      setIsSyncing(false);
+      setEditingDepartment(null);
+      setIsFormOpen(false);
     }
-    setEditingDepartment(null);
-    setIsFormOpen(false);
   };
   
   const openEditForm = (dept: Department) => {
@@ -51,13 +84,20 @@ const DepartmentsPage: React.FC<DepartmentsPageProps> = ({ departments, setDepar
     setIsConfirmOpen(true);
   };
 
-  const handleDelete = () => {
-    if (deletingDeptId) {
+  const handleDelete = async () => {
+    if (!deletingDeptId) return;
+    try {
+      setIsSyncing(true);
+      await departmentsApi.remove(deletingDeptId);
       setDepartments(departments.filter(d => d.id !== deletingDeptId));
       addToast({ type: 'success', message: 'Department deleted successfully.' });
+    } catch (e: any) {
+      addToast({ type: 'error', message: e?.message || 'Failed to delete department' });
+    } finally {
+      setIsSyncing(false);
+      setIsConfirmOpen(false);
+      setDeletingDeptId(null);
     }
-    setIsConfirmOpen(false);
-    setDeletingDeptId(null);
   };
 
 
@@ -66,7 +106,7 @@ const DepartmentsPage: React.FC<DepartmentsPageProps> = ({ departments, setDepar
       <div>
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-foreground">Departments</h1>
-          <Button onClick={openAddForm}>Create Department</Button>
+          <Button onClick={openAddForm} disabled={isSyncing}>Create Department</Button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {departments.map(dept => {

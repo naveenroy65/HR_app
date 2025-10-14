@@ -138,3 +138,25 @@ export const authApi = {
       { password }
     ),
 };
+
+// Departments API helpers
+export interface BackendDepartment {
+  _id: string;
+  name: string;
+  managerId?: any;
+}
+
+export const departmentsApi = {
+  list: () => api.get<BackendDepartment[]>('/departments'),
+  create: (payload: { name: string; managerId?: string | null }) =>
+    api.post<BackendDepartment, { name: string; managerId?: string | null }>(
+      '/departments',
+      payload
+    ),
+  update: (id: string, payload: { name?: string; managerId?: string | null }) =>
+    api.put<BackendDepartment, { name?: string; managerId?: string | null }>(
+      `/departments/${id}`,
+      payload
+    ),
+  remove: (id: string) => api.delete<{ message: string }>(`/departments/${id}`),
+};
