@@ -160,3 +160,40 @@ export const departmentsApi = {
     ),
   remove: (id: string) => api.delete<{ message: string }>(`/departments/${id}`),
 };
+
+// Employees API helpers
+export interface BackendEmployee {
+  _id: string;
+  employeeId: string;
+  name: string;
+  email: string;
+  phone?: string;
+  avatarUrl?: string;
+  departmentId: string | { _id: string };
+  role: string;
+  joinDate: string;
+  status: string;
+  employeeType: string;
+  salary: number;
+}
+
+export const employeesApi = {
+  list: () => api.get<BackendEmployee[]>('/employees'),
+  create: (payload: {
+    employeeId: string;
+    name: string;
+    email: string;
+    phone?: string;
+    avatarUrl?: string;
+    departmentId: string;
+    role: string;
+    joinDate: string | Date;
+    status: string;
+    employeeType: string;
+    salary: number;
+    password?: string;
+  }) => api.post<BackendEmployee, any>('/employees', payload),
+  update: (id: string, payload: Partial<Omit<BackendEmployee, '_id'>>) =>
+    api.put<BackendEmployee, any>(`/employees/${id}`, payload),
+  remove: (id: string) => api.delete<{ message: string }>(`/employees/${id}`),
+};

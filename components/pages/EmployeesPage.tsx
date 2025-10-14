@@ -10,6 +10,7 @@ import Dialog from '../common/Dialog';
 import { useToast } from '../../hooks/useToast';
 import EmployeeGridCard from '../employees/EmployeeGridCard';
 import Icon from '../common/Icon';
+import { employeesApi } from '../../utils/api';
 
 const StatusBadge: React.FC<{ status: EmployeeStatus }> = ({ status }) => {
   const statusClasses = status === EmployeeStatus.Active 
@@ -64,29 +65,78 @@ const EmployeesPage: React.FC<EmployeesPageProps> = ({ employees, setEmployees, 
     });
   }, [employees, searchTerm, statusFilter, departmentFilter]);
 
-  const handleSaveEmployee = (employeeData: Employee) => {
-    if (editingEmployee) {
-      setEmployees(employees.map(e => e.id === employeeData.id ? employeeData : e));
-      addToast({ type: 'success', message: 'Employee updated successfully!' });
-    } else {
-      setEmployees(prev => [employeeData, ...prev]);
-      onAddNewUser(employeeData);
-      
-      const newLeaveBalance: LeaveBalance = {
-        employeeId: employeeData.id,
-        balances: [
-            { type: LeaveType.Annual, total: 20, used: 0, pending: 0 },
-            { type: LeaveType.Sick, total: 10, used: 0, pending: 0 },
-            { type: LeaveType.Casual, total: 5, used: 0, pending: 0 },
-            { type: LeaveType.Unpaid, total: 99, used: 0, pending: 0 },
-        ]
-      };
-      setLeaveBalances(prev => [...prev, newLeaveBalance]);
-      addToast({ type: 'success', message: 'Employee added successfully!' });
-      setNewUserCredentials({ name: employeeData.name, email: employeeData.email });
+  const handleSaveEmployee = async (employeeData: Employee) => {
+    try {
+      if (editingEmployee) {
+        // Update via API
+        await employeesApi.update(editingEmployee.id, {
+          employeeId: employeeData.employeeId,
+          name: employeeData.name,
+          email: employeeData.email,
+          phone: employeeData.phone,
+          avatarUrl: employeeData.avatarUrl,
+          departmentId: employeeData.departmentId,
+          role: employeeData.role,
+          joinDate: employeeData.joinDate,
+          status: employeeData.status,
+          employeeType: employeeData.employeeType,
+          salary: employeeData.salary,
+        });
+        setEmployees(employees.map(e => e.id === employeeData.id ? employeeData : e));
+        addToast({ type: 'success', message: 'Employee updated successfully!' });
+      } else {
+        // Create via API (password optional; backend will generate temp if missing)
+        const { data } = await employeesApi.create({
+          employeeId: employeeData.employeeId,
+          name: employeeData.name,
+          email: employeeData.email,
+          phone: employeeData.phone,
+          avatarUrl: employeeData.avatarUrl,
+          departmentId: employeeData.departmentId,
+          role: employeeData.role,
+          joinDate: employeeData.joinDate,
+          status: employeeData.status,
+          employeeType: employeeData.employeeType,
+          salary: employeeData.salary,
+        });
+
+        const created: Employee = {
+          id: data._id,
+          employeeId: data.employeeId,
+          name: data.name,
+          email: data.email,
+          phone: employeeData.phone,
+          avatarUrl: data.avatarUrl,
+          departmentId: typeof data.departmentId === 'string' ? data.departmentId : (data.departmentId?._id || employeeData.departmentId),
+          role: data.role,
+          joinDate: employeeData.joinDate,
+          status: employeeData.status,
+          employeeType: employeeData.employeeType,
+          salary: employeeData.salary,
+        };
+
+        setEmployees(prev => [created, ...prev]);
+        onAddNewUser(created);
+
+        const newLeaveBalance: LeaveBalance = {
+          employeeId: created.id,
+          balances: [
+              { type: LeaveType.Annual, total: 20, used: 0, pending: 0 },
+              { type: LeaveType.Sick, total: 10, used: 0, pending: 0 },
+              { type: LeaveType.Casual, total: 5, used: 0, pending: 0 },
+              { type: LeaveType.Unpaid, total: 99, used: 0, pending: 0 },
+          ]
+        };
+        setLeaveBalances(prev => [...prev, newLeaveBalance]);
+        addToast({ type: 'success', message: 'Employee added successfully!' });
+        setNewUserCredentials({ name: created.name, email: created.email });
+      }
+    } catch (e: any) {
+      addToast({ type: 'error', message: e?.message || 'Failed to save employee' });
+    } finally {
+      setEditingEmployee(null);
+      setIsFormOpen(false);
     }
-    setEditingEmployee(null);
-    setIsFormOpen(false);
   };
 
   const openEditForm = (employee: Employee) => {
@@ -104,13 +154,18 @@ const EmployeesPage: React.FC<EmployeesPageProps> = ({ employees, setEmployees, 
     setIsConfirmOpen(true);
   };
 
-  const handleDelete = () => {
-    if (deletingEmployeeId) {
+  const handleDelete = async () => {
+    if (!deletingEmployeeId) return;
+    try {
+      await employeesApi.remove(deletingEmployeeId);
       setEmployees(employees.filter(e => e.id !== deletingEmployeeId));
       addToast({ type: 'success', message: 'Employee deleted successfully.' });
+    } catch (e: any) {
+      addToast({ type: 'error', message: e?.message || 'Failed to delete employee' });
+    } finally {
+      setIsConfirmOpen(false);
+      setDeletingEmployeeId(null);
     }
-    setIsConfirmOpen(false);
-    setDeletingEmployeeId(null);
   };
 
   return (
