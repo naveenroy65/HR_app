@@ -20,6 +20,7 @@ import ReportsPage from './components/pages/ReportsPage';
 import ProfilePage from './components/pages/ProfilePage';
 import MFASetupPage from './components/mfa/MFASetupPage';
 import MFAVerificationPage from './components/mfa/MFAVerificationPage';
+import { api } from './utils/api';
 
 type AuthState = 'loggedOut' | 'needsMfaSetup' | 'needsMfaVerification' | 'authenticated';
 
@@ -143,35 +144,18 @@ const AppContent: React.FC = () => {
 
   const handleLogin = useCallback((user: User) => {
     setCurrentUser(user);
-    if (user.isMfaSetup) {
-      setAuthState('needsMfaVerification');
-    } else {
-      setAuthState('needsMfaSetup');
-    }
+    setAuthState(user.isMfaSetup ? 'needsMfaVerification' : 'needsMfaSetup');
   }, []);
 
-  const handleMfaComplete = useCallback((isSetup: boolean) => {
+  const completeAuthentication = useCallback(() => {
     if (!currentUser) return;
-
-    let userToAuthenticate = currentUser;
-
-    // If this was the initial setup, persist the `isMfaSetup` flag.
-    if (isSetup) {
-      const updatedUser = { ...currentUser, isMfaSetup: true };
-      setCurrentUser(updatedUser);
-      setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
-      userToAuthenticate = updatedUser; // Use the updated user for the session logic
-    }
-
-    // --- Common logic for post-MFA authentication ---
 
     setAuthState('authenticated');
     setActivePage('Dashboard');
 
-    // --- Initialize Weekly Timer ---
     const today = new Date();
     const currentWeekId = getWeekIdentifier(today);
-    const userProgress = mockUserWeeklyProgress[userToAuthenticate.id];
+    const userProgress = mockUserWeeklyProgress[currentUser.id];
 
     let accumulatedMs = 0;
     // Load this week's progress if it exists, otherwise start fresh.
@@ -179,7 +163,7 @@ const AppContent: React.FC = () => {
       accumulatedMs = userProgress.accumulatedMs;
     } else {
       // It's a new week, so reset the progress.
-      mockUserWeeklyProgress[userToAuthenticate.id] = { accumulatedMs: 0, weekIdentifier: currentWeekId };
+      mockUserWeeklyProgress[currentUser.id] = { accumulatedMs: 0, weekIdentifier: currentWeekId };
     }
     setWeeklyAccumulatedMs(accumulatedMs);
 
@@ -192,7 +176,7 @@ const AppContent: React.FC = () => {
 
     // --- Auto Clock-In Logic ---
     const todayStr = today.toISOString().split('T')[0];
-    let userRecordForToday = attendanceRecords.find(rec => rec.employeeId === userToAuthenticate.id && rec.date === todayStr);
+    let userRecordForToday = attendanceRecords.find(rec => rec.employeeId === currentUser.id && rec.date === todayStr);
 
     // If the user hasn't clocked in today, automatically clock them in.
     if (!userRecordForToday || !userRecordForToday.clockIn) {
@@ -204,7 +188,7 @@ const AppContent: React.FC = () => {
         setTodayAttendanceRecord(updatedRecord);
       } else { // No record for today, create a new one.
         const newRecord: AttendanceRecord = {
-          id: `att-${Date.now()}`, employeeId: userToAuthenticate.id, date: todayStr,
+          id: `att-${Date.now()}`, employeeId: currentUser.id, date: todayStr,
           status: AttendanceStatus.Present, clockIn: clockInTimeStr,
         };
         setAttendanceRecords(prev => [...prev, newRecord]);
@@ -214,13 +198,29 @@ const AppContent: React.FC = () => {
       // If already clocked in, just set the record for the dashboard.
       setTodayAttendanceRecord(userRecordForToday);
     }
-  }, [currentUser, attendanceRecords, setUsers]);
+  }, [currentUser, attendanceRecords]);
+
+  const handleMfaSetupComplete = useCallback((token: string) => {
+    if (!currentUser) return;
+    const updatedUser = { ...currentUser, isMfaSetup: true };
+    setCurrentUser(updatedUser);
+    setUsers(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+    // Immediately consider the user verified and proceed to app
+    handleMfaVerified(token);
+  }, [currentUser, handleMfaVerified]);
+
+  const handleMfaVerified = useCallback((token: string) => {
+    // token is already stored by MFAVerificationPage, but ensure one place if needed
+    try { localStorage.setItem('token', token); } catch {}
+    completeAuthentication();
+  }, [completeAuthentication]);
 
 
   const handleLogout = useCallback(() => {
     setCurrentUser(null);
     setTodayAttendanceRecord(null);
     setAuthState('loggedOut');
+    try { localStorage.removeItem('token'); } catch {}
   }, []);
 
   const handleClockOut = useCallback(() => {
@@ -315,10 +315,10 @@ const AppContent: React.FC = () => {
     return <LoginPage onLogin={handleLogin} users={users} />;
   }
   if (authState === 'needsMfaSetup' && currentUser) {
-    return <MFASetupPage user={currentUser} onComplete={() => handleMfaComplete(true)} />;
+    return <MFASetupPage user={currentUser} onComplete={handleMfaSetupComplete} />;
   }
   if (authState === 'needsMfaVerification' && currentUser) {
-    return <MFAVerificationPage onComplete={() => handleMfaComplete(false)} />;
+    return <MFAVerificationPage userId={currentUser.id} onComplete={handleMfaVerified} />;
   }
 
   return (

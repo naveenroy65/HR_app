@@ -203,6 +203,22 @@ The application will be available at:
 - Frontend: `http://localhost:5173`
 - Backend API: `http://localhost:5000`
 
+### Start both frontend and backend together
+
+```bash
+npm run dev:all
+```
+
+Or start individually:
+
+```bash
+# frontend
+npm run dev
+
+# backend
+npm run dev:server
+```
+
 ## 🔐 Default Test Accounts
 
 After seeding the database, use these credentials:

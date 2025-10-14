@@ -4,6 +4,7 @@ import { Card } from '../common/Card';
 import { Input } from '../common/Input';
 import { Button } from '../common/Button';
 import { Label } from '../common/Label';
+import { authApi } from '../../utils/api';
 
 export const ResetPasswordPage: React.FC = () => {
   const { token } = useParams<{ token: string }>();
@@ -33,26 +34,14 @@ export const ResetPasswordPage: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`http://localhost:5000/api/auth/reset-password/${token}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ password }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setMessage(data.message);
-        setTimeout(() => {
-          navigate('/login');
-        }, 2000);
-      } else {
-        setError(data.message || 'Failed to reset password');
-      }
-    } catch (err) {
-      setError('An error occurred. Please try again.');
+      const tokenStr = token as string;
+      const { data } = await authApi.resetPassword(tokenStr, password);
+      setMessage(data.message);
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to reset password');
     } finally {
       setIsLoading(false);
     }

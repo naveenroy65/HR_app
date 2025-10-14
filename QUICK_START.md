@@ -94,6 +94,18 @@ npm run dev
 
 ✅ Backend should now be running on `http://localhost:5000`
 
+### Run frontend and backend together
+
+Use the combined dev script to start both the Vite client and the Express API (with MongoDB):
+
+```bash
+npm run dev:all
+```
+
+This will:
+- start Vite on `http://localhost:5173`
+- start the API on `http://localhost:5000`
+
 ## Step 3: Frontend Setup
 
 1. **Open a NEW terminal and navigate to the root directory:**
@@ -114,6 +126,10 @@ cp .env.example .env
 4. **Edit `.env` file:**
 ```env
 VITE_API_URL=http://localhost:5000/api
+
+# Optional overrides
+# VITE_APP_NAME=WEintegrity HR Management System
+# VITE_APP_VERSION=1.0.0
 VITE_APP_NAME=WEintegrity HR Management System
 VITE_APP_VERSION=1.0.0
 ```

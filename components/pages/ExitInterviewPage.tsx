@@ -4,6 +4,7 @@ import { Input } from '../common/Input';
 import { Button } from '../common/Button';
 import { Label } from '../common/Label';
 import { Select } from '../common/Select';
+import { api } from '../../utils/api';
 import { Textarea } from '../common/Textarea';
 
 interface ExitInterview {
@@ -46,19 +47,8 @@ export const ExitInterviewPage: React.FC = () => {
 
   const fetchExistingInterview = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/exit-interviews/my', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data) {
-          setExistingInterview(data);
-        }
-      }
+      const { data } = await api.get<ExitInterview | null>('/exit-interviews/my');
+      if (data) setExistingInterview(data);
     } catch (err) {
       console.error('Error fetching exit interview:', err);
     }
@@ -71,26 +61,11 @@ export const ExitInterviewPage: React.FC = () => {
     setError('');
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/exit-interviews', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setMessage('Exit interview submitted successfully!');
-        setExistingInterview(data);
-      } else {
-        setError(data.message || 'Failed to submit exit interview');
-      }
-    } catch (err) {
-      setError('An error occurred. Please try again.');
+      const { data } = await api.post<ExitInterview, Partial<ExitInterview>>('/exit-interviews', formData);
+      setMessage('Exit interview submitted successfully!');
+      setExistingInterview(data);
+    } catch (err: any) {
+      setError(err?.message || 'Failed to submit exit interview');
     } finally {
       setIsLoading(false);
     }

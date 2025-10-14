@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '../common/Card';
 import { Button } from '../common/Button';
 import { Table } from '../common/Table';
+import { api } from '../../utils/api';
 
 interface ExitInterview {
   _id: string;
@@ -27,21 +28,9 @@ export const ExitInterviewAdminPage: React.FC = () => {
 
   const fetchInterviews = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const url = filter === 'All' 
-        ? 'http://localhost:5000/api/exit-interviews'
-        : `http://localhost:5000/api/exit-interviews?status=${filter}`;
-      
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setInterviews(data);
-      }
+      const query = filter === 'All' ? '' : `?status=${filter}`;
+      const { data } = await api.get<ExitInterview[]>(`/exit-interviews${query}`);
+      setInterviews(data);
     } catch (err) {
       console.error('Error fetching interviews:', err);
     } finally {
@@ -51,18 +40,9 @@ export const ExitInterviewAdminPage: React.FC = () => {
 
   const handleApprove = async (id: string) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/exit-interviews/${id}/approve`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        fetchInterviews();
-        alert('Exit interview approved successfully');
-      }
+      await api.put(`/exit-interviews/${id}/approve`);
+      fetchInterviews();
+      alert('Exit interview approved successfully');
     } catch (err) {
       alert('Error approving interview');
     }
@@ -75,22 +55,11 @@ export const ExitInterviewAdminPage: React.FC = () => {
     }
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:5000/api/exit-interviews/${id}/reject`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({ rejectionReason }),
-      });
-
-      if (response.ok) {
-        fetchInterviews();
-        setSelectedInterview(null);
-        setRejectionReason('');
-        alert('Exit interview rejected');
-      }
+      await api.put(`/exit-interviews/${id}/reject`, { rejectionReason });
+      fetchInterviews();
+      setSelectedInterview(null);
+      setRejectionReason('');
+      alert('Exit interview rejected');
     } catch (err) {
       alert('Error rejecting interview');
     }

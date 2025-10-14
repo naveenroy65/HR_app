@@ -1,7 +1,10 @@
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import App from './App';
+import { ForgotPasswordPage } from './components/pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './components/pages/ResetPasswordPage';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -11,6 +14,12 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <App />
+    <BrowserRouter>
+      <Routes>
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+        <Route path="/*" element={<App />} />
+      </Routes>
+    </BrowserRouter>
   </React.StrictMode>
 );

@@ -4,31 +4,32 @@ import Button from '../common/Button';
 import Input from '../common/Input';
 import Label from '../common/Label';
 import { useToast } from '../../hooks/useToast';
+import { authApi } from '../../utils/api';
 
 interface MFAVerificationPageProps {
-  onComplete: () => void;
+  onComplete: (token: string) => void;
+  userId?: string;
 }
 
-const MFAVerificationPage: React.FC<MFAVerificationPageProps> = ({ onComplete }) => {
+const MFAVerificationPage: React.FC<MFAVerificationPageProps> = ({ onComplete, userId }) => {
   const [otp, setOtp] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { addToast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-
-    // Mock verification
-    setTimeout(() => {
-        if (otp.length === 6 && /^\d+$/.test(otp)) {
-            // In a real app, you would verify the OTP against the user's secret
-            onComplete();
-        } else {
-            addToast({ type: 'error', message: 'Invalid OTP. Please try again.' });
-            setOtp('');
-        }
-        setIsLoading(false);
-    }, 1000);
+    try {
+      if (!userId) throw new Error('Missing user');
+      const { data } = await authApi.mfaVerify(userId, otp, false);
+      localStorage.setItem('token', data.token);
+      onComplete(data.token);
+    } catch (err: any) {
+      addToast({ type: 'error', message: err?.message || 'Invalid OTP. Please try again.' });
+      setOtp('');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

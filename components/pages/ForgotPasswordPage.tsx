@@ -3,6 +3,7 @@ import { Card } from '../common/Card';
 import { Input } from '../common/Input';
 import { Button } from '../common/Button';
 import { Label } from '../common/Label';
+import { authApi } from '../../utils/api';
 
 export const ForgotPasswordPage: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -17,24 +18,11 @@ export const ForgotPasswordPage: React.FC = () => {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/forgot-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setMessage(data.message);
-        setEmail('');
-      } else {
-        setError(data.message || 'Failed to send reset email');
-      }
-    } catch (err) {
-      setError('An error occurred. Please try again.');
+      const { data } = await authApi.forgotPassword(email);
+      setMessage(data.message);
+      setEmail('');
+    } catch (err: any) {
+      setError(err?.message || 'Failed to send reset email');
     } finally {
       setIsLoading(false);
     }

@@ -4,6 +4,7 @@ import Button from './common/Button';
 import Card from './common/Card';
 import Input from './common/Input';
 import Label from './common/Label';
+import { authApi } from '../utils/api';
 
 interface LoginPageProps {
     onLogin: (user: User) => void;
@@ -16,22 +17,25 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin, users }) => {
     const [error, setError] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
         setIsLoading(true);
-
-        setTimeout(() => {
-            const userFound = users.find(u => u.email.toLowerCase() === email.toLowerCase());
-            
-            // Check for both demo user password and new employee default password
-            if (userFound && (userFound.password === password)) {
-                onLogin(userFound);
-            } else {
-                setError('Invalid email or password.');
-            }
+        try {
+            const { data } = await authApi.login(email, password);
+            onLogin({
+                id: data.user.id,
+                name: data.user.name,
+                email: data.user.email,
+                role: data.user.role as User['role'],
+                avatarUrl: data.user.avatarUrl,
+                isMfaSetup: data.user.isMfaSetup,
+            });
+        } catch (err: any) {
+            setError(err?.message || 'Login failed. Please try again.');
+        } finally {
             setIsLoading(false);
-        }, 1000);
+        }
     };
 
     return (
