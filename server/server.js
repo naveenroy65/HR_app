@@ -25,10 +25,42 @@ connectDB();
 const app = express();
 
 // Middleware
-app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true
-}));
+// CORS: allow configured origins and Vercel preview domains
+const primaryFrontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+const additionalFrontendUrls = (process.env.FRONTEND_URLS || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+const allowedOrigins = new Set([primaryFrontendUrl, ...additionalFrontendUrls]);
+
+const isAllowedVercelDomain = (origin) => {
+  try {
+    const hostname = new URL(origin).hostname;
+    return hostname.endsWith('.vercel.app');
+  } catch {
+    return false;
+  }
+};
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow non-browser or same-origin requests with no Origin header
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.has(origin) || isAllowedVercelDomain(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+  methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE'],
+  allowedHeaders: ['Authorization', 'Content-Type'],
+  optionsSuccessStatus: 204
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
