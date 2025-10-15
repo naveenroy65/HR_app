@@ -47,7 +47,8 @@ const LiveWorkTimer: React.FC<LiveWorkTimerProps> = ({ record, onClockOut, weekl
         const now = new Date();
         
         const sessionDurationMs = Math.max(0, now.getTime() - clockInDate.getTime());
-        const totalMs = isWeeklyTimerActive ? weeklyAccumulatedMs + sessionDurationMs : weeklyAccumulatedMs;
+        const totalMsRaw = isWeeklyTimerActive ? weeklyAccumulatedMs + sessionDurationMs : weeklyAccumulatedMs;
+        const totalMs = Math.min(totalMsRaw, 40 * 60 * 60 * 1000);
         setElapsedTime(formatMillisecondsToHHMMSS(totalMs));
     };
     

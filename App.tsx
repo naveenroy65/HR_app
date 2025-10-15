@@ -7,6 +7,7 @@ import LoginPage from './components/LoginPage';
 import { User, UserRole, AttendanceRecord, AttendanceStatus, LeaveRequest, Employee, Department, PayrollRecord, LeaveBalance, LeaveStatus, LeaveType, Notification } from './types';
 import { ToastProvider, useToast } from './hooks/useToast';
 import { mockAttendance, mockLeaveRequests, mockUserWeeklyProgress, mockEmployees, mockDepartments, mockPayroll, initialLeaveBalances, mockUsers, mockNotifications } from './data/mockData';
+import { formatLocalDateYYYYMMDD, getWeekIdentifierMondayStart } from './utils/date';
 
 // Page Components
 import DashboardPage from './components/pages/DashboardPage';
@@ -26,13 +27,7 @@ type AuthState = 'loggedOut' | 'needsMfaSetup' | 'needsMfaVerification' | 'authe
 const FORTY_HOURS_MS = 40 * 60 * 60 * 1000;
 
 // Helper to get a consistent weekly ID using Monday as the start of the week.
-const getWeekIdentifier = (d: Date): string => {
-    const date = new Date(d);
-    const day = date.getDay(); // Sunday - 0, Monday - 1, etc.
-    const diff = date.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday to go to previous Monday
-    date.setDate(diff);
-    return date.toISOString().split('T')[0];
-};
+const getWeekIdentifier = (d: Date): string => getWeekIdentifierMondayStart(d);
 
 const formatMillisecondsToHHMMSS = (ms: number) => {
     if (ms < 0) ms = 0;
@@ -173,12 +168,16 @@ const AppContent: React.FC = () => {
     const currentWeekId = getWeekIdentifier(today);
     const userProgress = mockUserWeeklyProgress[userToAuthenticate.id];
 
+    // Initialize from localStorage first to persist across reloads
+    const lsKey = `weeklyProgress:${userToAuthenticate.id}:${currentWeekId}`;
+    const persisted = localStorage.getItem(lsKey);
     let accumulatedMs = 0;
-    // Load this week's progress if it exists, otherwise start fresh.
-    if (userProgress && userProgress.weekIdentifier === currentWeekId) {
+    if (persisted) {
+      const parsed = Number(persisted);
+      if (!Number.isNaN(parsed)) accumulatedMs = parsed;
+    } else if (userProgress && userProgress.weekIdentifier === currentWeekId) {
       accumulatedMs = userProgress.accumulatedMs;
     } else {
-      // It's a new week, so reset the progress.
       mockUserWeeklyProgress[userToAuthenticate.id] = { accumulatedMs: 0, weekIdentifier: currentWeekId };
     }
     setWeeklyAccumulatedMs(accumulatedMs);
@@ -191,7 +190,7 @@ const AppContent: React.FC = () => {
     }
 
     // --- Auto Clock-In Logic ---
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = formatLocalDateYYYYMMDD(today);
     let userRecordForToday = attendanceRecords.find(rec => rec.employeeId === userToAuthenticate.id && rec.date === todayStr);
 
     // If the user hasn't clocked in today, automatically clock them in.
@@ -238,7 +237,8 @@ const AppContent: React.FC = () => {
         
         const sessionDurationMs = now.getTime() - clockInDate.getTime();
         
-        const newAccumulatedMs = isWeeklyTimerActive ? weeklyAccumulatedMs + sessionDurationMs : weeklyAccumulatedMs;
+        const newAccumulatedMsRaw = isWeeklyTimerActive ? weeklyAccumulatedMs + sessionDurationMs : weeklyAccumulatedMs;
+        const newAccumulatedMs = Math.min(newAccumulatedMsRaw, FORTY_HOURS_MS);
         const sessionWorkHoursStr = formatMillisecondsToHHMMSS(sessionDurationMs);
         
         const updatedRecord = {
@@ -250,6 +250,9 @@ const AppContent: React.FC = () => {
         setTodayAttendanceRecord(updatedRecord);
         setAttendanceRecords(prev => prev.map(r => r.id === updatedRecord.id ? updatedRecord : r));
         setWeeklyAccumulatedMs(newAccumulatedMs);
+        // Persist to localStorage for continuity across days within the week
+        const lsKey = `weeklyProgress:${currentUser.id}:${getWeekIdentifier(now)}`;
+        localStorage.setItem(lsKey, String(newAccumulatedMs));
 
         mockUserWeeklyProgress[currentUser.id] = {
             accumulatedMs: newAccumulatedMs,

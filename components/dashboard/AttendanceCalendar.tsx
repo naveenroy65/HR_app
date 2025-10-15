@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AttendanceRecord, AttendanceStatus } from '../../types';
+import { formatLocalDateYYYYMMDD } from '../../utils/date';
 import Card from '../common/Card';
 import Select from '../common/Select';
 
@@ -29,7 +30,7 @@ const AttendanceCalendar: React.FC<AttendanceCalendarProps> = ({ records }) => {
   };
   
   const getStatusForDay = (day: number): AttendanceStatus | undefined => {
-    const dateString = new Date(year, month, day).toISOString().split('T')[0];
+    const dateString = formatLocalDateYYYYMMDD(new Date(year, month, day));
     const record = records.find(r => r.date === dateString);
     return record?.status;
   };
