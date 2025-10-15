@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: hrms-api
+    env: node
+    plan: starter
+    rootDir: server
+    buildCommand: npm install --production
+    startCommand: npm start
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false
+    healthCheckPath: /api/health
