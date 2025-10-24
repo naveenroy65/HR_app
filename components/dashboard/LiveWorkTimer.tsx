@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Card from '../common/Card';
 import Icon from '../common/Icon';
@@ -46,8 +47,11 @@ const LiveWorkTimer: React.FC<LiveWorkTimerProps> = ({ record, onClockOut, weekl
     const updateDisplayTime = () => {
         const now = new Date();
         
+        // Calculate total session duration without excluding weekends.
         const sessionDurationMs = Math.max(0, now.getTime() - clockInDate.getTime());
+
         const totalMs = isWeeklyTimerActive ? weeklyAccumulatedMs + sessionDurationMs : weeklyAccumulatedMs;
+
         setElapsedTime(formatMillisecondsToHHMMSS(totalMs));
     };
     
@@ -76,15 +80,17 @@ const LiveWorkTimer: React.FC<LiveWorkTimerProps> = ({ record, onClockOut, weekl
             <p className="text-xs text-muted-foreground">{titleText}</p>
           </div>
         </div>
-        <Button 
-            variant={isClockedOut ? 'secondary' : 'destructive'} 
-            size="lg" 
-            onClick={onClockOut}
-            disabled={isClockedOut}
-            title={isClockedOut ? "Already clocked out" : "Clock out"}
-        >
-          {isClockedOut ? 'Clocked Out' : 'Clock Out'}
-        </Button>
+        <div className="text-right">
+            <Button 
+                variant={isClockedOut ? 'secondary' : 'destructive'} 
+                size="lg" 
+                onClick={onClockOut}
+                disabled={isClockedOut}
+                title={isClockedOut ? "Already clocked out" : "Clock out"}
+            >
+              {isClockedOut ? 'Clocked Out' : 'Clock Out'}
+            </Button>
+        </div>
       </div>
     </Card>
   );
